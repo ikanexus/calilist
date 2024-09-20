@@ -17,6 +17,10 @@ var syncCmd = &cobra.Command{
 	Short: "sync calibre database with anilist",
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Info("Starting Sync")
+		dryrun, _ := cmd.Flags().GetBool("dryrun")
+		if dryrun {
+			log.Warn("DRYRUN MODE")
+		}
 		db := database.NewDatabase()
 		defer db.Close()
 		al := anilist.NewAnilist()
@@ -48,19 +52,29 @@ var syncCmd = &cobra.Command{
 				log.Debug("Media is completed, changing status", "status", readingStatus)
 			}
 
+			entryTitle := book.BookName
+
 			if newVolume > currentVolume {
-				log.Info("Updating latest volume", "from", currentVolume, "to", newVolume)
-				err := al.UpdateVolumes(anilistEntry, newVolume, readingStatus)
-				cobra.CheckErr(err)
+				log.Info("Updating latest volume for", "book", entryTitle, "from", currentVolume, "to", newVolume)
+				if dryrun {
+					log.Warn("DRYRUN: would update volume with", "volume", newVolume, "status", readingStatus)
+				} else {
+					err := al.UpdateVolumes(anilistEntry, newVolume, readingStatus)
+					cobra.CheckErr(err)
+				}
 				updated += 1
 			} else {
 				log.Debug("Skipping volume update - current >= new", "current", currentVolume, "new", newVolume)
 			}
 
 			if newChapter > currentChapter {
-				log.Info("Updating chapter count", "from", currentChapter, "to", newChapter)
-				err := al.UpdateChapters(anilistEntry, newChapter, readingStatus)
-				cobra.CheckErr(err)
+				log.Info("Updating chapter count for", "book", entryTitle, "from", currentChapter, "to", newChapter)
+				if dryrun {
+					log.Warn("DRYRUN: would update chapters with", "chapter", newChapter, "status", readingStatus)
+				} else {
+					err := al.UpdateChapters(anilistEntry, newChapter, readingStatus)
+					cobra.CheckErr(err)
+				}
 				updated += 1
 			} else {
 				log.Debug("Skipping chapter update - current >= new", "current", currentChapter, "new", newChapter)
@@ -79,4 +93,5 @@ func init() {
 	viper.BindPFlag("appDb", syncCmd.Flags().Lookup("appDb"))
 	syncCmd.Flags().String("metadataDb", "", "calibre metadata.db location")
 	viper.BindPFlag("metadataDb", syncCmd.Flags().Lookup("metadataDb"))
+	syncCmd.Flags().Bool("dryrun", false, "Perform a dryrun")
 }
