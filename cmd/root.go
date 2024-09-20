@@ -7,19 +7,18 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var cfgFile string
+var logDebug bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "calilist",
 	Short: "Sync read books from calibre-web database to anilist",
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -39,10 +38,14 @@ func init() {
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.calilist.yaml)")
+	rootCmd.PersistentFlags().BoolVarP(&logDebug, "verbose", "v", false, "Enable debug logging")
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+	if logDebug {
+		log.SetLevel(log.DebugLevel)
+	}
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)

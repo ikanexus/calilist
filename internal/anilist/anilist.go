@@ -1,6 +1,7 @@
 package anilist
 
 import (
+	"github.com/charmbracelet/log"
 	"github.com/kaiserbh/anilistgo"
 	"github.com/spf13/viper"
 )
@@ -29,6 +30,7 @@ func (a anilist) Get(anilistId int) *anilistgo.MediaListEntry {
 func (a anilist) NormaliseVolumes(entry *anilistgo.MediaListEntry, volume int) int {
 	maxVolumes := entry.Media.Volumes
 	if maxVolumes != 0 && volume >= maxVolumes {
+		log.Info("Normalised volume", "old", volume, "new", maxVolumes)
 		volume = maxVolumes
 	}
 	return volume
@@ -37,6 +39,7 @@ func (a anilist) NormaliseVolumes(entry *anilistgo.MediaListEntry, volume int) i
 func (a anilist) NormaliseChapters(entry *anilistgo.MediaListEntry, chapters int) int {
 	maxChapters := entry.Media.Chapters
 	if maxChapters != 0 && chapters >= maxChapters {
+		log.Info("Normalised chapters", "old", chapters, "new", maxChapters)
 		chapters = maxChapters
 	}
 	return chapters

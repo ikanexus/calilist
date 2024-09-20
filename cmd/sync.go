@@ -4,8 +4,7 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/charmbracelet/log"
 	"github.com/ikanexus/calilist/internal/anilist"
 	"github.com/ikanexus/calilist/internal/database"
 	"github.com/spf13/cobra"
@@ -17,15 +16,16 @@ var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "sync calibre database with anilist",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("syncing")
+		log.Info("Starting Sync")
 		db := database.NewDatabase()
 		defer db.Close()
 		al := anilist.NewAnilist()
 
 		books := db.GetReadBooks()
+		updated := 0
 		for _, book := range books {
 			anilistId := book.AnilistId
-			fmt.Printf("book: %v\n", book)
+			log.Debug("Processing read book", "title", book.BookName, "book_id", book.BookId, "series_id", book.SeriesId, "volume", book.BookSeriesIndex)
 			seriesBooks := db.GetSeries(book)
 
 			// fmt.Printf("books in series: %v\n", seriesBooks)
@@ -45,26 +45,29 @@ var syncCmd = &cobra.Command{
 			readingStatus := anilistEntry.Status
 			if al.IsCompleted(anilistEntry, newVolume, newChapter) {
 				readingStatus = "COMPLETED"
-				fmt.Printf("Media is completed, changing status to %s\n", readingStatus)
+				log.Debug("Media is completed, changing status", "status", readingStatus)
 			}
 
-			fmt.Printf("Normalised volume: %d, chapter: %d => volume: %d, chapter: %d\n", latestVolume, chapterCount, newVolume, newChapter)
-
 			if newVolume > currentVolume {
-				fmt.Printf("Updating latest volume to %d from %d\n", newVolume, currentVolume)
+				log.Info("Updating latest volume", "from", currentVolume, "to", newVolume)
 				err := al.UpdateVolumes(anilistEntry, newVolume, readingStatus)
 				cobra.CheckErr(err)
+				updated += 1
 			} else {
-				fmt.Printf("Current volume %d is greater than or equal to the new volume %d, skipping.\n", currentVolume, newVolume)
+				log.Debug("Skipping volume update - current >= new", "current", currentVolume, "new", newVolume)
 			}
 
 			if newChapter > currentChapter {
-				fmt.Printf("Updating chapter count to %d from %d\n", newChapter, currentChapter)
+				log.Info("Updating chapter count", "from", currentChapter, "to", newChapter)
 				err := al.UpdateChapters(anilistEntry, newChapter, readingStatus)
 				cobra.CheckErr(err)
+				updated += 1
 			} else {
-				fmt.Printf("Current chapter count %d is greater than or equal to the new chapter count %d, skipping.\n", currentChapter, newChapter)
+				log.Debug("Skipping chapter update - current >= new", "current", currentChapter, "new", newChapter)
 			}
+		}
+		if updated == 0 {
+			log.Info("No updates required")
 		}
 	},
 }
