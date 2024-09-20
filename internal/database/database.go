@@ -9,6 +9,14 @@ import (
 	"github.com/spf13/viper"
 )
 
+type ReadStatus int
+
+const (
+	STATUS_UNREAD ReadStatus = iota
+	STATUS_FINISHED
+	STATUS_IN_PROGRESS
+)
+
 type Database interface {
 	GetSeries(book ReadBook) []SeriesBook
 	GetReadBooks() []ReadBook
@@ -16,11 +24,13 @@ type Database interface {
 }
 
 type ReadBook struct {
-	BookId          int    `db:"book_id"`
-	BookName        string `db:"book_name"`
-	BookSeriesIndex int    `db:"book_series_index"`
-	SeriesId        int    `db:"series_id"`
-	AnilistId       int    `db:"anilist_id"`
+	BookId          int        `db:"book_id"`
+	BookName        string     `db:"book_name"`
+	BookSeriesIndex int        `db:"book_series_index"`
+	SeriesId        int        `db:"series_id"`
+	AnilistId       int        `db:"anilist_id"`
+	ProgressPercent float32    `db:"progress_percent"`
+	ReadStatus      ReadStatus `db:"read_status"`
 }
 
 type SeriesBook struct {
@@ -54,6 +64,8 @@ WITH ranked_books AS (
 		s.id AS series_id,
 		b.series_index as book_series_index,
 		i.val as anilist_id,
+		kb.progress_percent as progress_percent,
+		brl.read_status as read_status,
         ROW_NUMBER() OVER (PARTITION BY s.id ORDER BY b.series_index DESC) as rn
 	FROM
 		book_read_link brl
@@ -65,20 +77,28 @@ WITH ranked_books AS (
 		calibre.series s ON bsl.series = s.id
 	LEFT JOIN
 		calibre.identifiers i ON i.book = b.id AND i.type = 'anilist'
+	LEFT JOIN
+		kobo_reading_state krs ON krs.book_id = b.id
+	LEFT JOIN
+		kobo_bookmark kb ON kb.kobo_reading_state_id = krs.id
 	WHERE
 		brl.last_modified > datetime('now', '-30 day')
-	AND
-		brl.read_status = 1
+		AND kb.progress_percent IS NOT NULL
+		AND brl.read_status != 0
 ) SELECT
 	book_id,
 	book_name,
 	series_id,
 	book_series_index,
-	anilist_id
+	read_status,
+	anilist_id,
+	progress_percent
 FROM
 	ranked_books
 WHERE
-	rn = 1 OR series_id IS NULL
+	(rn = 1 OR series_id IS NULL)
+	AND series_id IS NOT NULL
+	AND anilist_id IS NOT NULL
 ORDER BY
 	series_id, book_series_index DESC;
 `)
@@ -108,6 +128,7 @@ LEFT JOIN
 WHERE 
     bsl.series = ?
 	AND b.series_index <= ?
+	AND c.value IS NOT NULL
 ORDER BY 
     b.series_index;
 `, book.SeriesId, book.BookSeriesIndex)

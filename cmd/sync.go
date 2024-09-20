@@ -4,6 +4,9 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"math"
+	"time"
+
 	"github.com/charmbracelet/log"
 	"github.com/ikanexus/calilist/internal/anilist"
 	"github.com/ikanexus/calilist/internal/database"
@@ -29,14 +32,31 @@ var syncCmd = &cobra.Command{
 		updated := 0
 		for _, book := range books {
 			anilistId := book.AnilistId
-			log.Debug("Processing read book", "title", book.BookName, "book_id", book.BookId, "series_id", book.SeriesId, "volume", book.BookSeriesIndex)
+			if anilistId == 0 {
+				log.Error("Invalid anilist id for", "book", book.BookName)
+			}
+			log.Info("Processing read book", "title", book.BookName, "book_id", book.BookId, "series_id", book.SeriesId, "volume", book.BookSeriesIndex, "read_status", book.ReadStatus)
 			seriesBooks := db.GetSeries(book)
 
 			// fmt.Printf("books in series: %v\n", seriesBooks)
-			latestVolume := seriesBooks[len(seriesBooks)-1].BookSeriesIndex
+			if len(seriesBooks) == 0 {
+				log.Error("Couldn't find any books in series for", "book", book.BookId, "series_id", book.SeriesId)
+				continue
+			}
+			currentBook := seriesBooks[len(seriesBooks)-1]
+			latestVolume := currentBook.BookSeriesIndex
 			chapterCount := 0
 			for _, item := range seriesBooks {
 				chapterCount += item.Chapters
+			}
+			if book.ReadStatus == database.STATUS_IN_PROGRESS {
+				currentBookChapters := currentBook.Chapters
+				totalChapters := chapterCount
+				chapterCount -= currentBookChapters
+				progressPercent := float64(book.ProgressPercent / 100.0)
+				estimatedChapterProgress := int(math.Round(float64(currentBookChapters) * progressPercent))
+				chapterCount += estimatedChapterProgress
+				log.Info("Current chapter", "estimated", chapterCount, "total", totalChapters, "progress", progressPercent)
 			}
 
 			anilistEntry := al.Get(anilistId)
@@ -46,8 +66,8 @@ var syncCmd = &cobra.Command{
 			newVolume := al.NormaliseVolumes(anilistEntry, latestVolume)
 			newChapter := al.NormaliseChapters(anilistEntry, chapterCount)
 
-			readingStatus := anilistEntry.Status
-			if al.IsCompleted(anilistEntry, newVolume, newChapter) {
+			readingStatus := "CURRENT"
+			if al.IsCompleted(anilistEntry, newVolume, newChapter) && book.ReadStatus == database.STATUS_FINISHED {
 				readingStatus = "COMPLETED"
 				log.Debug("Media is completed, changing status", "status", readingStatus)
 			}
@@ -79,6 +99,7 @@ var syncCmd = &cobra.Command{
 			} else {
 				log.Debug("Skipping chapter update - current >= new", "current", currentChapter, "new", newChapter)
 			}
+			time.Sleep(5 * time.Second)
 		}
 		if updated == 0 {
 			log.Info("No updates required")
