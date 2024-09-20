@@ -1,4 +1,4 @@
-# calilist
+# calilist (Calibre + Anilist)
 
 Sync calibre + calibre-web databases to anilist for manga and light novels that have an anilist:* identifier
 
