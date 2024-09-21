@@ -99,7 +99,7 @@ var syncCmd = &cobra.Command{
 			} else {
 				log.Debug("Skipping chapter update - current >= new", "current", currentChapter, "new", newChapter)
 			}
-			time.Sleep(5 * time.Second)
+			time.Sleep(1 * time.Second)
 		}
 		if updated == 0 {
 			log.Info("No updates required")
