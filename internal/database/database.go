@@ -82,7 +82,7 @@ WITH ranked_books AS (
 	LEFT JOIN
 		kobo_bookmark kb ON kb.kobo_reading_state_id = krs.id
 	WHERE
-		brl.last_modified > datetime('now', '-30 day')
+		krs.last_modified > datetime('now', '-30 day')
 		AND kb.progress_percent IS NOT NULL
 		AND brl.read_status != 0
 ) SELECT
