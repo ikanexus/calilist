@@ -1,4 +1,4 @@
-package database
+package internal
 
 import (
 	"fmt"
@@ -16,6 +16,19 @@ const (
 	STATUS_FINISHED
 	STATUS_IN_PROGRESS
 )
+
+func (e ReadStatus) String() string {
+	switch e {
+	case STATUS_UNREAD:
+		return "UNREAD"
+	case STATUS_FINISHED:
+		return "FINISHED"
+	case STATUS_IN_PROGRESS:
+		return "IN_PROGRESS"
+	default:
+		return fmt.Sprintf("%d", int(e))
+	}
+}
 
 type Database interface {
 	GetSeries(book ReadBook) []SeriesBook
@@ -118,13 +131,13 @@ SELECT
     i.val AS anilist_id,
     c.value AS chapters
 FROM 
-    books b
+    calibre.books b
 INNER JOIN 
-    books_series_link bsl ON b.id = bsl.book
+    calibre.books_series_link bsl ON b.id = bsl.book
 LEFT JOIN 
-    identifiers i ON b.id = i.book AND i.type = 'anilist'
+    calibre.identifiers i ON b.id = i.book AND i.type = 'anilist'
 LEFT JOIN 
-    custom_column_15 c ON b.id = c.book
+    calibre.custom_column_15 c ON b.id = c.book
 WHERE 
     bsl.series = ?
 	AND b.series_index <= ?
